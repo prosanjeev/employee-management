@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -12,225 +12,286 @@ import {
   SimpleGrid,
   Stack,
   Text,
+  Radio,
+  RadioGroup,
+  Checkbox,
+  CheckboxGroup,
+  Heading,
+  HStack,
 } from "@chakra-ui/react";
 import { MdKeyboardDoubleArrowRight } from "react-icons/md";
 import { Field, Form, Formik } from "formik";
-import axios from "axios";
-import { employeeInformation } from "./data";
-import {  useNavigate, useParams } from "react-router-dom";
+import { object, string, array } from "yup";
 import { toast } from "react-toastify";
+import axios from "axios";
+import { useNavigate, useParams } from "react-router-dom";
 
-const UpdateEmployee = ({ match }) => {
+// Validation schema
+const employeeValidationSchema = object({
+  fullName: string().required("Name is required"),
+  email: string().email("Invalid email").required("Email is required"),
+  phone: string()
+    .required("Mobile No. is required")
+    .matches(/^[0-9]{10}$/, "Must be exactly 10 digits"),
+  designation: string().required("Designation is required"),
+  gender: string().required("Gender is required"),
+  course: array().min(1, "At least one course is required"),
+});
+
+const UpdateEmployee = () => {
+  const [employeeData, setEmployeeData] = useState(null);
   const [employeePhoto, setEmployeePhoto] = useState("");
-  const [employee, setEmployee] = useState(null);
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id } = useParams(); // Get the employee ID from the URL
 
   useEffect(() => {
-    fetchEmployee(id);
+    const fetchEmployeeData = async () => {
+      try {
+        const response = await axios.get(`http://localhost:8080/api/v1/employee/${id}`);
+        setEmployeeData(response.data);
+        setEmployeePhoto(response.data.profilePhoto); // Store current photo if exists
+      } catch (error) {
+        console.error("Error fetching employee data:", error);
+        toast.error("Failed to fetch employee data");
+      }
+    };
+
+    fetchEmployeeData();
   }, [id]);
 
-  function convertToBase64(e){
-    console.log(e);
-    var reader = new FileReader();
+  const convertToBase64 = (e) => {
+    const reader = new FileReader();
     reader.readAsDataURL(e.target.files[0]);
-    reader.onload = () => {
-        console.log(reader.result);
-        setEmployeePhoto(reader.result);
-    };
-    reader.onerror = error =>{
-        console.log("Error", error)
-    }
-  }
-
-  const fetchEmployee = async (id) => {
-    try {
-      const response = await axios.get(
-        `http://localhost:8080/api/v1/employee/${id}`
-      );
-      setEmployee(response.data);
-    } catch (error) {
-      console.error("Error fetching employee:", error);
-    }
+    reader.onload = () => setEmployeePhoto(reader.result);
+    reader.onerror = (error) => console.error("Error", error);
   };
 
-  const onSubmit = async (values) => {
-    console.log("vall",values)
+  const employeeInformation = [
+    {
+      label: "Full Name",
+      name: "fullName",
+      type: "text",
+      placeholder: "Enter your full name",
+    },
+    {
+      label: "Email",
+      name: "email",
+      type: "text",
+      placeholder: "Enter your email",
+    },
+    {
+      label: "Mobile No",
+      name: "phone",
+      type: "tel",
+      placeholder: "Enter your mobile number",
+    },
+    {
+      label: "Designation",
+      name: "designation",
+      type: "select",
+      options: ["HR", "Manager", "Sales"],
+      placeholder: "Select Designation",
+    },
+    {
+      label: "Gender",
+      name: "gender",
+      type: "radio",
+      options: ["Male", "Female"],
+    },
+    {
+      label: "Course",
+      name: "course",
+      type: "checkbox",
+      options: ["MCA", "BCA", "BSC"],
+    },
+    {
+      label: "Employee Photo",
+      name: "profilePhoto",
+      type: "file",
+    },
+  ];
+
+  const onSubmit = async (values, actions) => {
     try {
-      if(employeePhoto !== ""){
-        values.profilePhoto=employeePhoto
-      }
+      values.course = values.course.filter(Boolean); // Clean up the course array
+      values.profilePhoto = employeePhoto; // Include photo in values
+      console.log("Form Values:", values);
+
       const response = await axios.put(
-        `http://localhost:8080/api/v1/employee/${employee._id}`,
+        `http://localhost:8080/api/v1/employee/${id}`, // Update employee endpoint
         values
       );
-      console.log("response",response);
+
       if (response.status === 200) {
-        // toast.success("Employee updated successfully");
-    } else {
+        toast.success("Employee updated successfully");
+        navigate("/employees"); // Redirect after successful update
+      } else {
         toast.error("Failed to update employee");
-    }
-      navigate("/employees"); // Redirect to employees page after updating
+      }
     } catch (error) {
-      console.error("Error updating employee:", error.response.data.message);
-      // toast.error(error.response.data.message);
+      console.error("Error updating employee:", error);
+      toast.error(
+        error.response?.data?.message || "An error occurred while updating the employee"
+      );
     }
   };
 
+  if (!employeeData) return <Text>Loading...</Text>; // Show loading message while fetching data
+
   return (
-    <Box title="Update Employee">
-      {employee && (
-        <Center>
-          <Card
-            my={6}
-            py={6}
-            borderRadius="16px"
-            minW={{
-              base: "90vw",
-              md: "100vw",
-              lg: "1000px",
+    <Box py={10} bgColor="gray.50">
+      <Center>
+        <Card
+          my={6}
+          py={8}
+          px={6}
+          borderRadius="16px"
+          minW={{ base: "90vw", md: "100vw", lg: "600px" }}
+          boxShadow="lg"
+          bgColor="white"
+          border="1px"
+          borderColor="gray.200"
+        >
+          <Box textAlign="center" mb={6}>
+            <Heading as="h2" size="xl" color="teal.600" mb={2}>
+              Update Employee
+            </Heading>
+            <Text fontSize="lg" color="gray.500">
+              Update the details below to modify the employee information.
+            </Text>
+          </Box>
+
+          <Formik
+            initialValues={{
+              fullName: employeeData.fullName,
+              email: employeeData.email,
+              phone: employeeData.phone,
+              designation: employeeData.designation,
+              gender: employeeData.gender,
+              course: employeeData.course || [],
+              profilePhoto: null,
             }}
-            fontFamily="Philosopher"
+            validationSchema={employeeValidationSchema}
+            onSubmit={onSubmit}
           >
-            <Box
-              bgColor="green"
-              w="400px"
-              p="12px 16px"
-              borderRadius="0 50px 50px 0"
-            >
-              <Text color="white" textStyle="h1">
-                Update Employee
-              </Text>
-            </Box>
-
-            <Formik
-              initialValues={{
-                fullName: employee.fullName,
-                email: employee.email,
-                phone: employee.phone,
-                designation: employee.designation,
-                gender: employee.gender,
-                course: employee.course,
-              }}
-              onSubmit={onSubmit}
-            >
-              {({ values, setFieldValue }) => (
-                <Form>
-                  <Stack mt={10} spacing={6}>
-                    <SimpleGrid columns={1} px={7} columnGap={4} rowGap={4}>
-                      {/* Employee Information Fields */}
-                      {employeeInformation.map((list, index) => (
-                        <Field name={list.name} key={index}>
-                          {({ field, meta }) => (
-                            <FormControl isInvalid={meta.error && meta.touched}>
-                              <FormLabel htmlFor={list.name} fontWeight="600">
-                                {list.label}
-                              </FormLabel>
-                              {list.type === "select" ? (
-                                <Select
-                                  name={list.name}
-                                  {...field}
-                                  onChange={(e) =>
-                                    setFieldValue(list.name, e.target.value)
-                                  }
-                                  placeholder={list.placeholder}
-                                >
-                                  {list.options.map((option) => (
-                                    <option key={option} value={option}>
+            {({ values, setFieldValue }) => (
+              <Form>
+                <Stack spacing={6} mt={4}>
+                  <SimpleGrid columns={1} spacing={4}>
+                    {employeeInformation.map((input) => (
+                      <Field name={input.name} key={input.name}>
+                        {({ field, meta }) => (
+                          <FormControl isInvalid={meta.touched && !!meta.error}>
+                            <FormLabel
+                              htmlFor={input.name}
+                              fontWeight="bold"
+                              color="teal.600"
+                              mb={2}
+                            >
+                              {input.label}
+                            </FormLabel>
+                            {input.type === "select" ? (
+                              <Select
+                                bgColor="gray.100"
+                                borderColor="teal.300"
+                                focusBorderColor="teal.400"
+                                {...field}
+                                placeholder={input.placeholder}
+                                onChange={(e) => setFieldValue(input.name, e.target.value)}
+                              >
+                                {input.options.map((option) => (
+                                  <option key={option} value={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </Select>
+                            ) : input.type === "radio" ? (
+                              <RadioGroup onChange={(value) => setFieldValue(input.name, value)} value={field.value}>
+                                <Stack direction="row" spacing={6} mt={2}>
+                                  {input.options.map((option) => (
+                                    <Radio key={option} value={option} colorScheme="teal">
+                                      {option.charAt(0).toUpperCase() + option.slice(1)}
+                                    </Radio>
+                                  ))}
+                                </Stack>
+                              </RadioGroup>
+                            ) : input.type === "checkbox" ? (
+                              <CheckboxGroup value={values.course} onChange={(newValue) => setFieldValue(input.name, newValue)}>
+                                <Stack spacing={4} mt={2}>
+                                  {input.options.map((option) => (
+                                    <Checkbox key={option} value={option} colorScheme="teal">
                                       {option}
-                                    </option>
-                                  ))}
-                                </Select>
-                              ) :  list.type === "radio" ? (
-                                <Stack direction="row">
-                                  {list.options.map((option) => (
-                                    <Box key={option}>
-                                      <input
-                                        type="radio"
-                                        id={option}
-                                        name={list.name}
-                                        value={option}
-                                        checked={field.value === option}
-                                        onChange={() =>
-                                          setFieldValue(list.name, option)
-                                        }
-                                      />
-                                      <label htmlFor={option}>{option}</label>
-                                    </Box>
+                                    </Checkbox>
                                   ))}
                                 </Stack>
-                              ): list.type === "checkbox" ? (
-                                <Stack direction="row">
-                                  {list.options.map((option) => (
-                                    <Box key={option}>
-                                      <input
-                                        type="checkbox"
-                                        id={option}
-                                        name={list.name}
-                                        value={option}
-                                        checked={values.course.includes(option)}
-                                        onChange={(e) => {
-                                          const option = e.target.value;
-                                          let newValue;
-                                          if (e.target.checked) {
-                                            // Add the course to the array if it's not already present
-                                            newValue = [...values.course, option];
-                                          } else {
-                                            // Remove the course from the array if it's present
-                                            newValue = values.course.filter((item) => item !== option);
-                                          }
-                                          // Set the new value for the course field
-                                          setFieldValue(list.name, newValue);
-                                        }}
-                                      />
-                                      <label htmlFor={option}>{option}</label>
-                                    </Box>
-                                  ))}
-                                </Stack>
-                              ) : (
-                                <>
-                                  {list.name === "profilePhoto" ? (
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={convertToBase64}
-                                    
-                                    />
-                                  ) : (
-                                    <Input
-                                      bgColor="black.5"
-                                      name={list.name}
-                                      type={list.type}
-                                      placeholder={list.placeholder}
-                                      readOnly={list.readOnly}
-                                      {...field}
-                                    />
-                                  )}
-                                </>
-                              )}
-                              <FormErrorMessage>{meta.error}</FormErrorMessage>
-                            </FormControl>
-                          )}
-                        </Field>
-                      ))}
-                    </SimpleGrid>
+                              </CheckboxGroup>
+                            ) : input.type === "file" ? (
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={convertToBase64}
+                                borderColor="teal.300"
+                                mt={2}
+                              />
+                            ) : (
+                              <Input
+                                bgColor="gray.100"
+                                borderColor="teal.300"
+                                focusBorderColor="teal.400"
+                                {...field}
+                                type={input.type}
+                                placeholder={input.placeholder}
+                                mt={2}
+                              />
+                            )}
+                            <FormErrorMessage>{meta.error}</FormErrorMessage>
+                          </FormControl>
+                        )}
+                      </Field>
+                    ))}
+                  </SimpleGrid>
 
-                    {/* Submit Button */}
+                  <Stack direction={{ base: "column", md: "column" }} spacing={4}>
                     <Button
                       leftIcon={<MdKeyboardDoubleArrowRight />}
-                      m="10px 50px"
-                      size="md"
+                      size="lg"
+                      colorScheme="teal"
+                      variant="solid"
                       type="submit"
+                      w="100%"
+                      py={6}
+                      borderRadius="8px"
+                      _hover={{ bg: "teal.600", transform: "translateY(-2px)", boxShadow: "lg" }}
+                      boxShadow="md"
                     >
                       Update Employee
                     </Button>
+                    <Button
+                      size="lg"
+                      colorScheme="red"
+                      variant="outline"
+                      onClick={() => navigate("/employees")} 
+                      w="100%"
+                      py={6}
+                      borderRadius="8px"
+                      boxShadow="md"
+                      _hover={{ 
+                        borderColor: "red.600", 
+                        color: "red.600", 
+                        bg: "red.50",
+                        transform: "translateY(-2px)",
+                        boxShadow: "lg" 
+                      }}
+                    >
+                      Cancel
+                    </Button>
                   </Stack>
-                </Form>
-              )}
-            </Formik>
-          </Card>
-        </Center>
-      )}
+                </Stack>
+              </Form>
+            )}
+          </Formik>
+        </Card>
+      </Center>
     </Box>
   );
 };

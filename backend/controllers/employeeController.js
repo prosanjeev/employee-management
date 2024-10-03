@@ -26,7 +26,7 @@ export const createEmployee = async (req, res) => {
         if (!["HR", "Manager", "Sales"].includes(designation)) {
             return res.status(400).send("Designation must be 'HR', 'Manager', or 'Sales'");
         }
-        if (!["male", "female"].includes(gender)) {
+        if (!["Male", "Female"].includes(gender)) {
             return res.status(400).send("Gender must be 'male' or 'female'");
         }
 
@@ -57,16 +57,29 @@ export const createEmployee = async (req, res) => {
     }
 };
 
-// Read all employees
+// Read all employees with search, sorting, and pagination
 export const getEmployees = async (req, res) => {
+    const { search, sort, sortDirection = 'asc', page = 1, limit = 10 } = req.query;
+
+    const query = search ? { fullName: { $regex: search, $options: "i" } } : {};
+    const options = {
+        sort: sort ? { [sort]: sortDirection === 'asc' ? 1 : -1 } : {}, // Sort by the field specified in the query
+        page: parseInt(page), // Current page
+        limit: parseInt(limit), // Number of records per page
+    };
+
     try {
-        const employees = await Employee.find();
-        return res.status(200).json(employees);
+        const employees = await Employee.find(query, null, options);
+        const totalEmployees = await Employee.countDocuments(query);
+        return res.status(200).json({ employees, totalEmployees });
     } catch (error) {
         console.log(error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
+
+
 
 // Read a single employee by ID
 export const getEmployeeById = async (req, res) => {
@@ -103,7 +116,7 @@ export const updateEmployee = async (req, res) => {
         if (!["HR", "Manager", "Sales"].includes(designation)) {
             return res.status(400).send("Designation must be 'HR', 'Manager', or 'Sales'");
         }
-        if (!["male", "female"].includes(gender)) {
+        if (!["Male", "Female"].includes(gender)) {
             return res.status(400).send("Gender must be 'male' or 'female'");
         }
 

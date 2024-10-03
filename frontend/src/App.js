@@ -18,7 +18,7 @@ function App() {
             <Route path='' element={<Dashboard />} />
             <Route path='employees' element={<EmployeeList />} />
             <Route path='create-employee' element={<CreateEmployee />} />
-            <Route path='edit-employee/:id' element={<UpdateEmployee />} />
+            <Route path='update-employee/:id' element={<UpdateEmployee />} />
           </Route>
         </Route>
 

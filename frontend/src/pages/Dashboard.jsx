@@ -5,8 +5,8 @@ import React from 'react'
   return (
     <>
     <Container>
-        <Center minH='100vh'>
-            <Heading>Welcome Admin Panel</Heading>
+        <Center minH='80vh'>
+            <Heading>Welcome to Admin Panel</Heading>
         </Center>
     </Container>
     </>
